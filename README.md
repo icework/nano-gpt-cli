@@ -36,6 +36,16 @@ Or store it once in the local CLI config:
 nano-gpt config set api-key YOUR_API_KEY
 ```
 
+Optional overrides:
+
+```bash
+export NANO_GPT_MODEL=moonshotai/kimi-k2.5
+export NANO_GPT_IMAGE_MODEL=qwen-image
+export NANO_GPT_VIDEO_MODEL=kling-video-v2
+export NANO_GPT_BASE_URL=https://nano-gpt.com
+export NANO_GPT_OUTPUT_FORMAT=text
+```
+
 ## Usage
 
 ```bash
@@ -47,6 +57,14 @@ nano-gpt image "Turn this product photo into a watercolor ad" --image ./product.
 nano-gpt video "A cinematic drone flyover of a neon coastal city at dusk" --duration 5 --output /tmp/neon-city.mp4
 nano-gpt video "Animate this concept frame with subtle camera motion" --image ./concept.png --output /tmp/concept-shot.mp4
 ```
+
+## Security
+
+This CLI sends prompts and any explicitly provided `--image` or `--video` inputs to the NanoGPT API at the configured base URL, which defaults to `https://nano-gpt.com`.
+
+If you run `nano-gpt config set api-key ...`, the token is stored locally in the per-user `nano-gpt-cli` config directory. You can avoid local storage by using `NANO_GPT_API_KEY` instead.
+
+Do not pass sensitive local files unless you intend to upload them to NanoGPT. Image and video generation commands will read the local media paths you provide and transmit that data to the configured API endpoint.
 
 ## Development
 

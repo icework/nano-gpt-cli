@@ -1,6 +1,6 @@
 ---
 name: nano-gpt
-description: Use when tasks need the NanoGPT API for text, image, or video generation through the local `nano-gpt` CLI and bundled wrapper scripts for OpenClaw or ClawHub workflows.
+description: Use when tasks need the NanoGPT API for text, image, or video generation through the local `nano-gpt` CLI and bundled wrapper scripts for OpenClaw or ClawHub workflows. This skill requires a NanoGPT API token.
 ---
 
 # NanoGPT Skill
@@ -30,16 +30,26 @@ If the repo is not present locally, install the published CLI instead:
 npm install -g nano-gpt-cli
 ```
 
-Authentication is token-based. Set the NanoGPT API token in `NANO_GPT_API_KEY`:
+Authentication is token-based. This skill requires a NanoGPT API token. Set the token in `NANO_GPT_API_KEY`:
 
 ```bash
 export NANO_GPT_API_KEY=YOUR_NANO_GPT_TOKEN
 ```
 
-Or configure it once:
+Or configure it once and store it in the local `nano-gpt-cli` user config:
 
 ```bash
 nano-gpt config set api-key YOUR_API_KEY
+```
+
+Optional environment overrides:
+
+```bash
+export NANO_GPT_MODEL=moonshotai/kimi-k2.5
+export NANO_GPT_IMAGE_MODEL=qwen-image
+export NANO_GPT_VIDEO_MODEL=kling-video-v2
+export NANO_GPT_BASE_URL=https://nano-gpt.com
+export NANO_GPT_OUTPUT_FORMAT=text
 ```
 
 ## Quick start
@@ -100,7 +110,12 @@ Open only what you need:
 ## Guardrails
 
 - Prefer the wrapper scripts over calling NanoGPT HTTP APIs directly.
+- Only use this skill when the user wants to call the NanoGPT API.
 - Keep secrets out of prompts and logs; use config or env vars for API keys.
+- Only upload local images or videos when the user explicitly provides the path or clearly asks to use that specific file.
+- Do not search the filesystem for media to upload.
+- Treat local `--image` and `--video` inputs as remote-upload actions. Do not send sensitive screenshots, exports, documents, or recordings unless the user explicitly requests it.
+- Prompts and any provided media are sent to the configured NanoGPT API endpoint, which defaults to `https://nano-gpt.com`.
 - Use `--json` when another tool or agent will parse the output.
 - Use `--output` on `scripts/image.sh` when a file artifact is required.
 - Use `--output` on `scripts/video.sh` when the final MP4 should be written locally.
