@@ -2,6 +2,10 @@
 
 CLI and ClawHub/OpenClaw skill package for the NanoGPT API.
 
+NanoGPT is an API for text, image, and video generation. According to the official docs, its text generation interface generally matches OpenAI standards, while the wider platform also exposes image, video, speech, and related endpoints. This repository is specifically for working with the NanoGPT API from the command line and from OpenClaw/ClawHub skill workflows.
+
+Official docs: <https://docs.nano-gpt.com/>
+
 ## What’s here
 
 - `cli/`: TypeScript CLI published as `nano-gpt-cli`
@@ -19,6 +23,14 @@ npm link
 ```
 
 ## Configure
+
+Set your NanoGPT API token with an environment variable:
+
+```bash
+export NANO_GPT_API_KEY=YOUR_NANO_GPT_TOKEN
+```
+
+Or store it once in the local CLI config:
 
 ```bash
 nano-gpt config set api-key YOUR_API_KEY

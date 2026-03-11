@@ -1,11 +1,13 @@
 ---
 name: nano-gpt
-description: Use when tasks need NanoGPT text, image, or video generation through the local `nano-gpt` CLI and bundled wrapper scripts for OpenClaw or ClawHub workflows.
+description: Use when tasks need the NanoGPT API for text, image, or video generation through the local `nano-gpt` CLI and bundled wrapper scripts for OpenClaw or ClawHub workflows.
 ---
 
 # NanoGPT Skill
 
-Use this skill when the task should run through NanoGPT from a local terminal environment. Prefer the bundled wrapper scripts in `scripts/` so OpenClaw and direct CLI usage share the same behavior.
+Use this skill when the task should run through the NanoGPT API from a local terminal environment. NanoGPT’s official docs describe it as an API for text, image, and video generation, with text generation generally matching OpenAI standards. This repository is the local CLI and skill wrapper for that API, not a generic prompt helper. Prefer the bundled wrapper scripts in `scripts/` so OpenClaw and direct CLI usage share the same behavior.
+
+Official docs: <https://docs.nano-gpt.com/>
 
 ## Prerequisite check
 
@@ -28,7 +30,13 @@ If the repo is not present locally, install the published CLI instead:
 npm install -g nano-gpt-cli
 ```
 
-Authentication is API-key based. Set `NANO_GPT_API_KEY` or configure it once:
+Authentication is token-based. Set the NanoGPT API token in `NANO_GPT_API_KEY`:
+
+```bash
+export NANO_GPT_API_KEY=YOUR_NANO_GPT_TOKEN
+```
+
+Or configure it once:
 
 ```bash
 nano-gpt config set api-key YOUR_API_KEY
