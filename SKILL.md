@@ -1,6 +1,6 @@
 ---
 name: nano-gpt
-description: Use when tasks need NanoGPT text or image generation through the local `nano-gpt` CLI and bundled wrapper scripts for OpenClaw or ClawHub workflows.
+description: Use when tasks need NanoGPT text, image, or video generation through the local `nano-gpt` CLI and bundled wrapper scripts for OpenClaw or ClawHub workflows.
 ---
 
 # NanoGPT Skill
@@ -60,13 +60,27 @@ Image generation:
 ./scripts/image.sh "A cinematic product shot of a silver mechanical keyboard" --output output/keyboard.png
 ```
 
+Image-to-image generation:
+
+```bash
+./scripts/image.sh "Turn this product photo into a watercolor ad" --image ./assets/product.png --output output/product-watercolor.png
+```
+
+Video generation:
+
+```bash
+./scripts/video.sh "A cinematic drone flyover of a neon coastal city at dusk" --duration 5 --output output/neon-city.mp4
+```
+
 ## Workflow
 
 1. Use `scripts/prompt.sh` for one-shot text or vision prompts.
 2. Use `scripts/chat.sh` for iterative back-and-forth.
-3. Use `scripts/image.sh` when the task needs image generation.
-4. Use `scripts/models.sh --json` when model discovery matters.
-5. Prefer flags over editing scripts. The wrappers should stay thin.
+3. Use `scripts/image.sh` for text-to-image or image-to-image generation.
+4. Use `scripts/video.sh` for text-to-video or image-to-video generation.
+5. Use `nano-gpt video-status REQUEST_ID` when a video run is asynchronous and needs a later status check.
+6. Use `scripts/models.sh --json` when model discovery matters.
+7. Prefer flags over editing scripts. The wrappers should stay thin.
 
 ## References
 
@@ -81,4 +95,4 @@ Open only what you need:
 - Keep secrets out of prompts and logs; use config or env vars for API keys.
 - Use `--json` when another tool or agent will parse the output.
 - Use `--output` on `scripts/image.sh` when a file artifact is required.
-
+- Use `--output` on `scripts/video.sh` when the final MP4 should be written locally.

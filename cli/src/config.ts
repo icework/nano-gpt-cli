@@ -7,6 +7,7 @@ import {
   DEFAULT_BASE_URL,
   DEFAULT_IMAGE_MODEL,
   DEFAULT_TEXT_MODEL,
+  DEFAULT_VIDEO_MODEL,
 } from "./constants.js";
 import type { AppConfig, OutputFormat, ResolvedSettings } from "./types.js";
 
@@ -14,6 +15,7 @@ export type ConfigKey =
   | "api-key"
   | "default-model"
   | "default-image-model"
+  | "default-video-model"
   | "output-format"
   | "base-url";
 
@@ -70,6 +72,11 @@ export function mergeConfig(
       env.NANO_GPT_IMAGE_MODEL ??
       fileConfig.defaultImageModel ??
       DEFAULT_IMAGE_MODEL,
+    defaultVideoModel:
+      overrides.defaultVideoModel ??
+      env.NANO_GPT_VIDEO_MODEL ??
+      fileConfig.defaultVideoModel ??
+      DEFAULT_VIDEO_MODEL,
     outputFormat: normalizeOutputFormat(
       overrides.outputFormat ??
         (env.NANO_GPT_OUTPUT_FORMAT as OutputFormat | undefined) ??
@@ -114,6 +121,7 @@ function sanitizeConfig(config: AppConfig): AppConfig {
     apiKey: trimOrUndefined(config.apiKey),
     defaultModel: trimOrUndefined(config.defaultModel),
     defaultImageModel: trimOrUndefined(config.defaultImageModel),
+    defaultVideoModel: trimOrUndefined(config.defaultVideoModel),
     outputFormat: config.outputFormat ? normalizeOutputFormat(config.outputFormat) : undefined,
     baseUrl: config.baseUrl ? normalizeBaseUrl(config.baseUrl) : undefined,
   };
@@ -127,6 +135,8 @@ function mapConfigValue(key: ConfigKey, value: string): AppConfig {
       return { defaultModel: value.trim() };
     case "default-image-model":
       return { defaultImageModel: value.trim() };
+    case "default-video-model":
+      return { defaultVideoModel: value.trim() };
     case "output-format":
       return { outputFormat: normalizeOutputFormat(value as OutputFormat) };
     case "base-url":
@@ -142,6 +152,8 @@ function mapConfigKey(key: ConfigKey): keyof AppConfig {
       return "defaultModel";
     case "default-image-model":
       return "defaultImageModel";
+    case "default-video-model":
+      return "defaultVideoModel";
     case "output-format":
       return "outputFormat";
     case "base-url":

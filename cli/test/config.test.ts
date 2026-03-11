@@ -9,6 +9,7 @@ test("mergeConfig applies precedence flags over env over file", () => {
       apiKey: "file-key",
       defaultModel: "file-model",
       defaultImageModel: "file-image",
+      defaultVideoModel: "file-video",
       outputFormat: "text",
       baseUrl: "https://file.example",
     },
@@ -16,6 +17,7 @@ test("mergeConfig applies precedence flags over env over file", () => {
       NANO_GPT_API_KEY: "env-key",
       NANO_GPT_MODEL: "env-model",
       NANO_GPT_IMAGE_MODEL: "env-image",
+      NANO_GPT_VIDEO_MODEL: "env-video",
       NANO_GPT_OUTPUT_FORMAT: "json",
       NANO_GPT_BASE_URL: "https://env.example/",
     },
@@ -28,6 +30,7 @@ test("mergeConfig applies precedence flags over env over file", () => {
   assert.equal(resolved.apiKey, "flag-key");
   assert.equal(resolved.defaultModel, "flag-model");
   assert.equal(resolved.defaultImageModel, "env-image");
+  assert.equal(resolved.defaultVideoModel, "env-video");
   assert.equal(resolved.outputFormat, "json");
   assert.equal(resolved.baseUrl, "https://env.example");
 });
@@ -39,4 +42,3 @@ test("redactConfig masks the stored API key", () => {
 
   assert.equal(redacted.apiKey, "abcd...5678");
 });
-

@@ -1,5 +1,4 @@
 interface:
   display_name: "NanoGPT"
-  short_description: "Use NanoGPT from local OpenClaw workflows"
-  default_prompt: "Use NanoGPT through the local CLI wrappers to answer this request or generate an image."
-
+  short_description: "Use NanoGPT from local OpenClaw workflows for text, image, or video tasks"
+  default_prompt: "Use NanoGPT through the local CLI wrappers to answer this request or generate text, images, or video."

@@ -36,3 +36,15 @@ Useful chat commands:
 ./scripts/image.sh "A flat lay of developer tools on a walnut desk" --output output/devtools.png
 ```
 
+## Video generation
+
+```bash
+./scripts/video.sh "A cinematic drone flyover of a neon coastal city at dusk" --duration 5 --output output/neon-city.mp4
+```
+
+For long renders, return the async id first and check later:
+
+```bash
+./scripts/video.sh "Animate this storyboard into a teaser shot" --image ./storyboard.png --no-wait
+nano-gpt video-status REQUEST_ID --output output/teaser.mp4
+```

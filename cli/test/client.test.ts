@@ -80,3 +80,78 @@ test("NanoGptClient forwards image-to-image fields to image generation", async (
     imageDataUrl: "data:image/png;base64,abc123",
   });
 });
+
+test("NanoGptClient submits video generation requests", async () => {
+  let requestedUrl = "";
+  let requestBody = "";
+  const client = new NanoGptClient(
+    {
+      apiKey: "test-key",
+      baseUrl: "https://example.com/nanogpt",
+    },
+    async (input, init) => {
+      requestedUrl = String(input);
+      requestBody = String(init?.body ?? "");
+      return new Response(JSON.stringify({ runId: "run_123" }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    },
+  );
+
+  const response = await client.generateVideo({
+    model: "kling-video-v2",
+    prompt: "animate this storyboard",
+    imageUrl: "https://example.com/storyboard.png",
+    duration: "5",
+    aspect_ratio: "16:9",
+  });
+
+  assert.equal(response.runId, "run_123");
+  assert.equal(requestedUrl, "https://example.com/nanogpt/api/generate-video");
+  assert.deepEqual(JSON.parse(requestBody), {
+    model: "kling-video-v2",
+    prompt: "animate this storyboard",
+    imageUrl: "https://example.com/storyboard.png",
+    duration: "5",
+    aspect_ratio: "16:9",
+  });
+});
+
+test("NanoGptClient fetches video status by request id", async () => {
+  let requestedUrl = "";
+  const client = new NanoGptClient(
+    {
+      apiKey: "test-key",
+      baseUrl: "https://example.com/nanogpt",
+    },
+    async (input) => {
+      requestedUrl = String(input);
+      return new Response(
+        JSON.stringify({
+          data: {
+            status: "COMPLETED",
+            output: {
+              video: {
+                url: "https://cdn.example/video.mp4",
+              },
+            },
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    },
+  );
+
+  const response = await client.getVideoStatus("run_123");
+  assert.equal(requestedUrl, "https://example.com/nanogpt/api/video/status?requestId=run_123");
+  assert.equal(response.data?.status, "COMPLETED");
+  assert.equal(response.data?.output?.video?.url, "https://cdn.example/video.mp4");
+});

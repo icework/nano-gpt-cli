@@ -2,14 +2,26 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 
 import { Command } from "commander";
 
 import { NanoGptClient } from "./client.js";
 import { readConfig, redactConfig, resolveSettings, setConfigValue, type ConfigKey } from "./config.js";
-import { normalizeImageGenerationInputs } from "./image-input.js";
+import {
+  normalizeImageGenerationInputs,
+  normalizeVideoGenerationImageInput,
+  normalizeVideoGenerationVideoInput,
+} from "./image-input.js";
 import { buildUserMessage } from "./messages.js";
-import type { AppConfig, ChatMessage, ImageGenerationResponse } from "./types.js";
+import type {
+  AppConfig,
+  ChatMessage,
+  ImageGenerationResponse,
+  VideoGenerationRequest,
+  VideoGenerationResponse,
+  VideoStatusResponse,
+} from "./types.js";
 
 type PromptOptions = {
   model?: string;
@@ -38,6 +50,25 @@ type ImageOptions = {
   image: string[];
 };
 
+type VideoOptions = {
+  model?: string;
+  duration?: string;
+  aspectRatio?: string;
+  resolution?: string;
+  image?: string;
+  video?: string;
+  output?: string;
+  json?: boolean;
+  wait?: boolean;
+  pollInterval?: string;
+  timeout?: string;
+};
+
+type VideoStatusOptions = {
+  output?: string;
+  json?: boolean;
+};
+
 type ConfigListOptions = {
   json?: boolean;
 };
@@ -46,6 +77,7 @@ const CONFIG_KEYS: ConfigKey[] = [
   "api-key",
   "default-model",
   "default-image-model",
+  "default-video-model",
   "output-format",
   "base-url",
 ];
@@ -248,6 +280,138 @@ export function createProgram(): Command {
       output.write("NanoGPT did not return image data.\n");
     });
 
+  program
+    .command("video")
+    .description("Generate a video with NanoGPT")
+    .argument("[prompt...]", "Video prompt. Reads stdin when omitted.")
+    .option("-m, --model <model>", "Model override")
+    .option("--duration <duration>", "Video duration, for example 5 or 5s")
+    .option("--aspect-ratio <ratio>", "Aspect ratio override")
+    .option("--resolution <resolution>", "Resolution override")
+    .option("--image <pathOrUrl>", "Condition on an image path, URL, or data URL")
+    .option("--video <pathOrUrl>", "Condition on a video path, URL, or data URL")
+    .option("-o, --output <path>", "Write the final video artifact to a file")
+    .option("--json", "Print the raw JSON response")
+    .option("--no-wait", "Return the run id immediately without polling")
+    .option("--poll-interval <seconds>", "Polling interval in seconds when waiting", "5")
+    .option("--timeout <seconds>", "Maximum seconds to wait for completion")
+    .action(async (promptParts: string[], options: VideoOptions) => {
+      const prompt = await resolvePromptText(promptParts);
+      const settings = await resolveSettings({
+        defaultVideoModel: options.model,
+        outputFormat: options.json ? "json" : undefined,
+      });
+      ensureApiKey(settings.apiKey);
+      const jsonOutput = shouldUseJsonOutput(settings.outputFormat);
+
+      if (options.image && options.video) {
+        throw new Error("Pass either --image or --video for video generation, not both.");
+      }
+
+      const client = new NanoGptClient(settings);
+      const request = await buildVideoGenerationRequest(
+        {
+          model: options.model ?? settings.defaultVideoModel,
+          prompt,
+          duration: options.duration,
+          aspect_ratio: options.aspectRatio,
+          resolution: options.resolution,
+        },
+        {
+          image: options.image,
+          video: options.video,
+        },
+      );
+
+      const submission = await client.generateVideo(request);
+      const requestId = getVideoRequestId(submission);
+      if (!requestId) {
+        throw new Error("NanoGPT did not return a video request id.");
+      }
+
+      if (options.wait === false) {
+        if (jsonOutput) {
+          writeJson(submission);
+        } else {
+          output.write(`${requestId}\n`);
+        }
+        return;
+      }
+
+      const status = await pollVideoStatus(client, requestId, {
+        pollIntervalMs: parseOptionalSeconds(options.pollInterval, "--poll-interval") ?? 5000,
+        timeoutMs: parseOptionalSeconds(options.timeout, "--timeout"),
+      });
+
+      const savedPath = options.output
+        ? await persistVideoOutput(client, status, options.output)
+        : undefined;
+
+      if (jsonOutput) {
+        writeJson({
+          submission,
+          status,
+          outputPath: savedPath,
+        });
+        return;
+      }
+
+      if (savedPath) {
+        output.write(`${savedPath}\n`);
+        return;
+      }
+
+      const videoUrl = getVideoOutputUrl(status);
+      if (videoUrl) {
+        output.write(`${videoUrl}\n`);
+        return;
+      }
+
+      output.write("NanoGPT completed the video run without a downloadable output URL.\n");
+    });
+
+  program
+    .command("video-status")
+    .description("Inspect the status of an async NanoGPT video run")
+    .argument("<requestId>", "Video request id returned by `nano-gpt video --no-wait`")
+    .option("-o, --output <path>", "Write the completed video artifact to a file")
+    .option("--json", "Print the raw JSON response")
+    .action(async (requestId: string, options: VideoStatusOptions) => {
+      const settings = await resolveSettings({
+        outputFormat: options.json ? "json" : undefined,
+      });
+      ensureApiKey(settings.apiKey);
+      const jsonOutput = shouldUseJsonOutput(settings.outputFormat);
+
+      const client = new NanoGptClient(settings);
+      const status = await client.getVideoStatus(requestId);
+      assertVideoStatusNotFailed(status, requestId);
+      const savedPath = options.output
+        ? await persistVideoOutput(client, status, options.output)
+        : undefined;
+
+      if (jsonOutput) {
+        writeJson({
+          ...status,
+          outputPath: savedPath,
+        });
+        return;
+      }
+
+      if (savedPath) {
+        output.write(`${savedPath}\n`);
+        return;
+      }
+
+      const videoUrl = getVideoOutputUrl(status);
+      if (videoUrl) {
+        output.write(`${videoUrl}\n`);
+        return;
+      }
+
+      output.write(`${getVideoStatusValue(status) ?? "UNKNOWN"}\n`);
+    });
+
   const configCommand = program
     .command("config")
     .description("Manage user configuration");
@@ -418,6 +582,8 @@ function getConfigValue(config: AppConfig, key: ConfigKey): string | undefined {
       return config.defaultModel;
     case "default-image-model":
       return config.defaultImageModel;
+    case "default-video-model":
+      return config.defaultVideoModel;
     case "output-format":
       return config.outputFormat;
     case "base-url":
@@ -431,4 +597,151 @@ function writeJson(value: unknown): void {
 
 export function shouldUseJsonOutput(outputFormat: AppConfig["outputFormat"]): boolean {
   return outputFormat === "json";
+}
+
+export function getVideoRequestId(
+  submission: Pick<VideoGenerationResponse, "requestId" | "runId">,
+): string | undefined {
+  return submission.requestId ?? submission.runId;
+}
+
+export function getVideoStatusValue(status: VideoStatusResponse): string | undefined {
+  return status.data?.status;
+}
+
+export function getVideoErrorMessage(status: VideoStatusResponse): string | undefined {
+  return status.data?.userFriendlyError ?? status.data?.error;
+}
+
+export function getVideoPollDelay(
+  elapsedMs: number,
+  pollIntervalMs: number,
+  timeoutMs?: number,
+): number {
+  if (timeoutMs === undefined) {
+    return pollIntervalMs;
+  }
+
+  const remainingMs = timeoutMs - elapsedMs;
+  if (remainingMs <= 0) {
+    return 0;
+  }
+
+  return Math.min(pollIntervalMs, remainingMs);
+}
+
+async function buildVideoGenerationRequest(
+  request: VideoGenerationRequest,
+  inputs: {
+    image?: string;
+    video?: string;
+  },
+): Promise<VideoGenerationRequest> {
+  const [imageInput, videoInput] = await Promise.all([
+    normalizeVideoGenerationImageInput(inputs.image),
+    normalizeVideoGenerationVideoInput(inputs.video),
+  ]);
+
+  return {
+    ...request,
+    ...imageInput,
+    ...videoInput,
+  };
+}
+
+async function pollVideoStatus(
+  client: NanoGptClient,
+  requestId: string,
+  options: {
+    pollIntervalMs: number;
+    timeoutMs?: number;
+  },
+): Promise<VideoStatusResponse> {
+  const startedAt = Date.now();
+
+  while (true) {
+    const status = await client.getVideoStatus(requestId);
+    if (handleCompletedVideoStatus(status, requestId)) {
+      return status;
+    }
+
+    const delayMs = getVideoPollDelay(Date.now() - startedAt, options.pollIntervalMs, options.timeoutMs);
+    if (delayMs <= 0) {
+      throw new Error(`Timed out waiting for NanoGPT video run ${requestId}.`);
+    }
+
+    await sleep(delayMs);
+  }
+}
+
+async function persistVideoOutput(
+  client: NanoGptClient,
+  status: VideoStatusResponse,
+  outputPath: string,
+): Promise<string> {
+  const currentStatus = getVideoStatusValue(status);
+  if (currentStatus !== "COMPLETED") {
+    throw new Error(
+      `Cannot write video output while NanoGPT status is ${currentStatus ?? "UNKNOWN"}.`,
+    );
+  }
+
+  const videoUrl = getVideoOutputUrl(status);
+  if (!videoUrl) {
+    throw new Error("NanoGPT completed the video run without an output URL.");
+  }
+
+  const absolutePath = resolve(outputPath);
+  await client.downloadToFile(videoUrl, absolutePath);
+  return absolutePath;
+}
+
+function getVideoOutputUrl(status: VideoStatusResponse): string | undefined {
+  return status.data?.output?.video?.url;
+}
+
+function handleCompletedVideoStatus(
+  status: VideoStatusResponse,
+  requestId: string,
+): boolean {
+  const currentStatus = getVideoStatusValue(status);
+  switch (currentStatus) {
+    case "COMPLETED":
+      return true;
+    case "FAILED":
+      throw new Error(getVideoErrorMessage(status) ?? `NanoGPT video run failed: ${requestId}`);
+    case "PENDING":
+    case "PROCESSING":
+    case "QUEUED":
+    case "IN_QUEUE":
+    case "IN_PROGRESS":
+    case undefined:
+      return false;
+    default:
+      throw new Error(`Unexpected NanoGPT video status: ${currentStatus}`);
+  }
+}
+
+function assertVideoStatusNotFailed(
+  status: VideoStatusResponse,
+  requestId: string,
+): void {
+  if (getVideoStatusValue(status) !== "FAILED") {
+    return;
+  }
+
+  throw new Error(getVideoErrorMessage(status) ?? `NanoGPT video run failed: ${requestId}`);
+}
+
+function parseOptionalSeconds(value: string | undefined, flagName: string): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    throw new Error(`${flagName} must be a positive number of seconds.`);
+  }
+
+  return Math.round(seconds * 1000);
 }

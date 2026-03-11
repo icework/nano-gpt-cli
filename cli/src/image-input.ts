@@ -2,11 +2,18 @@ import { access, readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const MAX_VIDEO_DATA_URL_BYTES = 4 * 1024 * 1024;
 const IMAGE_TO_IMAGE_MIME_TYPES = new Set([
   "image/gif",
   "image/jpeg",
   "image/png",
   "image/webp",
+]);
+const VIDEO_MIME_TYPES = new Set([
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "video/x-m4v",
 ]);
 
 export async function normalizeChatImageInput(input: string): Promise<string> {
@@ -37,6 +44,60 @@ export async function normalizeImageGenerationInputs(
 
   return {
     imageDataUrls,
+  };
+}
+
+export async function normalizeVideoGenerationImageInput(
+  input: string | undefined,
+): Promise<{
+  imageUrl?: string;
+  imageDataUrl?: string;
+}> {
+  if (!input) {
+    return {};
+  }
+
+  if (input.startsWith("data:")) {
+    assertImageToImageMimeType(extractDataUrlMimeType(input), input);
+    return { imageDataUrl: input };
+  }
+
+  if (isRemoteImageInput(input)) {
+    return { imageUrl: input };
+  }
+
+  const media = await readLocalMediaAsDataUrl(input, { kind: "image" });
+  assertImageToImageMimeType(media.mimeType, media.source);
+  assertMaxVideoDataUrlBytes(media.bytes.length, media.source);
+  return {
+    imageDataUrl: media.dataUrl,
+  };
+}
+
+export async function normalizeVideoGenerationVideoInput(
+  input: string | undefined,
+): Promise<{
+  videoUrl?: string;
+  videoDataUrl?: string;
+}> {
+  if (!input) {
+    return {};
+  }
+
+  if (input.startsWith("data:")) {
+    assertSupportedVideoMimeType(extractDataUrlMimeType(input), input);
+    return { videoDataUrl: input };
+  }
+
+  if (isRemoteImageInput(input)) {
+    return { videoUrl: input };
+  }
+
+  const media = await readLocalMediaAsDataUrl(input, { kind: "video" });
+  assertSupportedVideoMimeType(media.mimeType, media.source);
+  assertMaxVideoDataUrlBytes(media.bytes.length, media.source);
+  return {
+    videoDataUrl: media.dataUrl,
   };
 }
 
@@ -73,7 +134,7 @@ async function readRemoteImageAsDataUrl(
   }
 
   const bytes = Buffer.from(await response.arrayBuffer());
-  const mimeType = detectMimeType(input, bytes, response.headers.get("content-type"));
+  const mimeType = detectImageMimeType(input, bytes, response.headers.get("content-type"));
   assertImageToImageMimeType(mimeType, input);
   return toDataUrl(mimeType, bytes);
 }
@@ -82,16 +143,37 @@ async function readLocalImageAsDataUrl(
   input: string,
   options?: { imageToImage?: boolean },
 ): Promise<string> {
+  const media = await readLocalMediaAsDataUrl(input, { kind: "image" });
+  if (options?.imageToImage) {
+    assertImageToImageMimeType(media.mimeType, media.source);
+  }
+
+  return media.dataUrl;
+}
+
+async function readLocalMediaAsDataUrl(
+  input: string,
+  options: { kind: "image" | "video" },
+): Promise<{
+  bytes: Buffer;
+  dataUrl: string;
+  mimeType: string;
+  source: string;
+}> {
   const absolutePath = resolve(input);
   await access(absolutePath);
   const bytes = await readFile(absolutePath);
-  const mimeType = detectMimeType(absolutePath, bytes);
+  const mimeType =
+    options.kind === "image"
+      ? detectImageMimeType(absolutePath, bytes)
+      : detectVideoMimeType(absolutePath, bytes);
 
-  if (options?.imageToImage) {
-    assertImageToImageMimeType(mimeType, absolutePath);
-  }
-
-  return toDataUrl(mimeType, bytes);
+  return {
+    bytes,
+    dataUrl: toDataUrl(mimeType, bytes),
+    mimeType,
+    source: absolutePath,
+  };
 }
 
 function toDataUrl(mimeType: string, bytes: Buffer): string {
@@ -116,7 +198,7 @@ function extractDataUrlMimeType(input: string): string {
   return mimeType;
 }
 
-function detectMimeType(pathOrUrl: string, bytes: Buffer, contentType?: string | null): string {
+function detectImageMimeType(pathOrUrl: string, bytes: Buffer, contentType?: string | null): string {
   const normalizedContentType = normalizeMimeType(contentType);
   if (normalizedContentType?.startsWith("image/")) {
     return normalizedContentType;
@@ -175,6 +257,45 @@ function detectMimeType(pathOrUrl: string, bytes: Buffer, contentType?: string |
   }
 }
 
+function detectVideoMimeType(pathOrUrl: string, bytes: Buffer): string {
+  if (
+    bytes.length >= 12 &&
+    bytes.subarray(4, 8).toString("ascii") === "ftyp"
+  ) {
+    const brand = bytes.subarray(8, 12).toString("ascii").toLowerCase();
+    if (brand === "qt  ") {
+      return "video/quicktime";
+    }
+
+    return "video/mp4";
+  }
+
+  if (
+    bytes.length >= 4 &&
+    bytes[0] === 0x1a &&
+    bytes[1] === 0x45 &&
+    bytes[2] === 0xdf &&
+    bytes[3] === 0xa3
+  ) {
+    return "video/webm";
+  }
+
+  switch (extname(pathOrUrl).toLowerCase()) {
+    case ".mp4":
+      return "video/mp4";
+    case ".mov":
+      return "video/quicktime";
+    case ".webm":
+      return "video/webm";
+    case ".m4v":
+      return "video/x-m4v";
+    default:
+      throw new Error(
+        `Unsupported local video file: ${pathOrUrl}. Use mp4, mov, webm, m4v, or pass a remote URL/data URL.`,
+      );
+  }
+}
+
 function normalizeMimeType(contentType?: string | null): string | undefined {
   if (!contentType) {
     return undefined;
@@ -199,5 +320,25 @@ function assertImageToImageMimeType(mimeType: string, source: string): void {
 
   throw new Error(
     `Unsupported image-to-image source: ${source}. NanoGPT image inputs must be jpeg, png, webp, or gif data URLs.`,
+  );
+}
+
+function assertSupportedVideoMimeType(mimeType: string, source: string): void {
+  if (VIDEO_MIME_TYPES.has(mimeType)) {
+    return;
+  }
+
+  throw new Error(
+    `Unsupported video source: ${source}. NanoGPT video inputs must be mp4, mov, webm, or m4v data URLs.`,
+  );
+}
+
+function assertMaxVideoDataUrlBytes(size: number, source: string): void {
+  if (size <= MAX_VIDEO_DATA_URL_BYTES) {
+    return;
+  }
+
+  throw new Error(
+    `Local media source is too large for a video data URL: ${source}. NanoGPT limits inline video inputs to 4 MB, so use a remote URL instead.`,
   );
 }

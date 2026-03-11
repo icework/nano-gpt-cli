@@ -4,6 +4,7 @@ export interface AppConfig {
   apiKey?: string;
   defaultModel?: string;
   defaultImageModel?: string;
+  defaultVideoModel?: string;
   outputFormat?: OutputFormat;
   baseUrl?: string;
 }
@@ -12,6 +13,7 @@ export interface ResolvedSettings {
   apiKey?: string;
   defaultModel: string;
   defaultImageModel: string;
+  defaultVideoModel: string;
   outputFormat: OutputFormat;
   baseUrl: string;
 }
@@ -88,4 +90,41 @@ export interface ImageGenerationResponse {
     b64_json?: string;
     revised_prompt?: string;
   }>;
+}
+
+export interface VideoGenerationRequest {
+  model: string;
+  prompt: string;
+  duration?: string;
+  aspect_ratio?: string;
+  resolution?: string;
+  imageUrl?: string;
+  imageDataUrl?: string;
+  videoUrl?: string;
+  videoDataUrl?: string;
+}
+
+export interface VideoGenerationResponse {
+  runId?: string;
+  requestId?: string;
+  status?: string;
+  model?: string;
+  eta?: number;
+}
+
+export interface VideoStatusResponse {
+  requestId?: string;
+  model?: string;
+  data?: {
+    status?: string;
+    requestId?: string;
+    details?: string;
+    error?: string;
+    userFriendlyError?: string;
+    output?: {
+      video?: {
+        url?: string;
+      };
+    };
+  };
 }

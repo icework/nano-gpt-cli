@@ -10,6 +10,9 @@ import type {
   ImageGenerationResponse,
   ModelsResponse,
   ResolvedSettings,
+  VideoGenerationRequest,
+  VideoGenerationResponse,
+  VideoStatusResponse,
 } from "./types.js";
 
 export class ApiError extends Error {
@@ -78,6 +81,31 @@ export class NanoGptClient {
       method: "POST",
       body: JSON.stringify(request),
     });
+  }
+
+  async generateVideo(
+    request: VideoGenerationRequest,
+  ): Promise<VideoGenerationResponse> {
+    return this.fetchJson<VideoGenerationResponse>("api/generate-video", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async getVideoStatus(requestId: string): Promise<VideoStatusResponse> {
+    const url = new URL(this.makeUrl("api/video/status"));
+    url.searchParams.set("requestId", requestId);
+
+    const response = await this.fetchImpl(url, {
+      method: "GET",
+      headers: this.headers(),
+    });
+
+    if (!response.ok) {
+      throw await toApiError(response);
+    }
+
+    return (await response.json()) as VideoStatusResponse;
   }
 
   async downloadToFile(url: string, outputPath: string): Promise<void> {

@@ -32,6 +32,8 @@ nano-gpt chat
 nano-gpt models --json
 nano-gpt image "A red panda coding at a laptop" --output /tmp/red-panda.jpg
 nano-gpt image "Turn this product photo into a watercolor ad" --image ./product.png --output /tmp/product-watercolor.png
+nano-gpt video "A cinematic drone flyover of a neon coastal city at dusk" --duration 5 --output /tmp/neon-city.mp4
+nano-gpt video "Animate this concept frame with subtle camera motion" --image ./concept.png --output /tmp/concept-shot.mp4
 ```
 
 ## Development
