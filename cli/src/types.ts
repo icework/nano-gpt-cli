@@ -77,6 +77,8 @@ export interface ImageGenerationRequest {
   prompt: string;
   size?: string;
   quality?: string;
+  imageDataUrl?: string;
+  imageDataUrls?: string[];
 }
 
 export interface ImageGenerationResponse {
@@ -87,4 +89,3 @@ export interface ImageGenerationResponse {
     revised_prompt?: string;
   }>;
 }
-

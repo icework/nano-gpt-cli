@@ -31,6 +31,7 @@ nano-gpt prompt "Write one sentence proving this CLI is working."
 nano-gpt chat
 nano-gpt models --json
 nano-gpt image "A red panda coding at a laptop" --output /tmp/red-panda.jpg
+nano-gpt image "Turn this product photo into a watercolor ad" --image ./product.png --output /tmp/product-watercolor.png
 ```
 
 ## Development
@@ -45,4 +46,3 @@ The CLI defaults to `moonshotai/kimi-k2.5` for text and `qwen-image` for image g
 ## License
 
 MIT. See `LICENSE`.
-

@@ -8,7 +8,7 @@ The skill wraps the local `nano-gpt` executable.
 nano-gpt prompt [text] [--model MODEL] [--system PROMPT] [--image PATH_OR_URL] [--json] [--no-stream]
 nano-gpt chat [text] [--model MODEL] [--system PROMPT] [--json]
 nano-gpt models [--json]
-nano-gpt image [prompt] [--model MODEL] [--size SIZE] [--quality QUALITY] [--output FILE] [--json]
+nano-gpt image [prompt] [--model MODEL] [--size SIZE] [--quality QUALITY] [--image PATH_OR_URL] [--output FILE] [--json]
 nano-gpt config get KEY
 nano-gpt config set KEY VALUE
 nano-gpt config list
@@ -29,4 +29,3 @@ nano-gpt config list
 - `NANO_GPT_IMAGE_MODEL`
 - `NANO_GPT_OUTPUT_FORMAT`
 - `NANO_GPT_BASE_URL`
-

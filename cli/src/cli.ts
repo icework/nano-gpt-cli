@@ -7,6 +7,7 @@ import { Command } from "commander";
 
 import { NanoGptClient } from "./client.js";
 import { readConfig, redactConfig, resolveSettings, setConfigValue, type ConfigKey } from "./config.js";
+import { normalizeImageGenerationInputs } from "./image-input.js";
 import { buildUserMessage } from "./messages.js";
 import type { AppConfig, ChatMessage, ImageGenerationResponse } from "./types.js";
 
@@ -34,6 +35,7 @@ type ImageOptions = {
   quality?: string;
   output?: string;
   json?: boolean;
+  image: string[];
 };
 
 type ConfigListOptions = {
@@ -188,11 +190,12 @@ export function createProgram(): Command {
 
   program
     .command("image")
-    .description("Generate an image with NanoGPT")
+    .description("Generate or transform an image with NanoGPT")
     .argument("[prompt...]", "Image prompt. Reads stdin when omitted.")
     .option("-m, --model <model>", "Model override")
     .option("--size <size>", "Image size override")
     .option("--quality <quality>", "Image quality override")
+    .option("--image <pathOrUrl>", "Source image path, URL, or data URL", collectValues, [])
     .option("-o, --output <path>", "Write the image artifact to a file")
     .option("--json", "Print the raw JSON response")
     .action(async (promptParts: string[], options: ImageOptions) => {
@@ -205,11 +208,13 @@ export function createProgram(): Command {
       const jsonOutput = shouldUseJsonOutput(settings.outputFormat);
 
       const client = new NanoGptClient(settings);
+      const imageInputs = await normalizeImageGenerationInputs(options.image);
       const response = await client.generateImage({
         model: options.model ?? settings.defaultImageModel,
         prompt,
         size: options.size,
         quality: options.quality,
+        ...imageInputs,
       });
 
       const savedPath = options.output
