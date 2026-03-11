@@ -1,6 +1,14 @@
 ---
 name: nano-gpt
 description: Use when tasks need the NanoGPT API for text, image, or video generation through the local `nano-gpt` CLI and bundled wrapper scripts for OpenClaw or ClawHub workflows. This skill requires a NanoGPT API token.
+homepage: https://docs.nano-gpt.com/
+metadata:
+  openclaw:
+    homepage: https://docs.nano-gpt.com/
+    primaryEnv: NANO_GPT_API_KEY
+    requires:
+      env:
+        - NANO_GPT_API_KEY
 ---
 
 # NanoGPT Skill
