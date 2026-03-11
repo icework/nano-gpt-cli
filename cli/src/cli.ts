@@ -72,12 +72,13 @@ export function createProgram(): Command {
         outputFormat: options.json ? "json" : undefined,
       });
       ensureApiKey(settings.apiKey);
+      const jsonOutput = shouldUseJsonOutput(settings.outputFormat);
 
       const model = options.model ?? settings.defaultModel;
       const messages = await buildConversation(options.system, prompt, options.image);
       const client = new NanoGptClient(settings);
 
-      if (options.json) {
+      if (jsonOutput) {
         const response = await client.createChatCompletion({ model, messages });
         writeJson(response);
         return;
@@ -114,6 +115,7 @@ export function createProgram(): Command {
         outputFormat: options.json ? "json" : undefined,
       });
       ensureApiKey(settings.apiKey);
+      const jsonOutput = shouldUseJsonOutput(settings.outputFormat);
 
       const client = new NanoGptClient(settings);
       const history: ChatMessage[] = [];
@@ -127,7 +129,7 @@ export function createProgram(): Command {
       let currentModel = options.model ?? settings.defaultModel;
       const initialPrompt = textParts.join(" ").trim();
       if (initialPrompt) {
-        await runChatTurn(client, history, currentModel, initialPrompt, Boolean(options.json));
+        await runChatTurn(client, history, currentModel, initialPrompt, jsonOutput);
       }
 
       const rl = createInterface({ input, output });
@@ -154,7 +156,7 @@ export function createProgram(): Command {
             continue;
           }
 
-          await runChatTurn(client, history, currentModel, line, Boolean(options.json));
+          await runChatTurn(client, history, currentModel, line, jsonOutput);
         }
       } finally {
         rl.close();
@@ -170,10 +172,11 @@ export function createProgram(): Command {
         outputFormat: options.json ? "json" : undefined,
       });
       ensureApiKey(settings.apiKey);
+      const jsonOutput = shouldUseJsonOutput(settings.outputFormat);
 
       const client = new NanoGptClient(settings);
       const response = await client.listModels();
-      if (options.json) {
+      if (jsonOutput) {
         writeJson(response);
         return;
       }
@@ -199,6 +202,7 @@ export function createProgram(): Command {
         outputFormat: options.json ? "json" : undefined,
       });
       ensureApiKey(settings.apiKey);
+      const jsonOutput = shouldUseJsonOutput(settings.outputFormat);
 
       const client = new NanoGptClient(settings);
       const response = await client.generateImage({
@@ -212,7 +216,7 @@ export function createProgram(): Command {
         ? await persistImageOutput(client, response, options.output)
         : undefined;
 
-      if (options.json) {
+      if (jsonOutput) {
         writeJson({
           ...response,
           outputPath: savedPath,
@@ -418,4 +422,8 @@ function getConfigValue(config: AppConfig, key: ConfigKey): string | undefined {
 
 function writeJson(value: unknown): void {
   output.write(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+export function shouldUseJsonOutput(outputFormat: AppConfig["outputFormat"]): boolean {
+  return outputFormat === "json";
 }

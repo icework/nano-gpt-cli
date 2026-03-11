@@ -30,7 +30,7 @@ export class NanoGptClient {
   ) {}
 
   async listModels(): Promise<ModelsResponse> {
-    const response = await this.fetchJson<ModelsResponse>("/api/v1/models", {
+    const response = await this.fetchJson<ModelsResponse>("api/v1/models", {
       method: "GET",
     });
     return response;
@@ -39,7 +39,7 @@ export class NanoGptClient {
   async createChatCompletion(
     request: ChatCompletionRequest,
   ): Promise<ChatCompletionResponse> {
-    return this.fetchJson<ChatCompletionResponse>("/api/v1/chat/completions", {
+    return this.fetchJson<ChatCompletionResponse>("api/v1/chat/completions", {
       method: "POST",
       body: JSON.stringify({
         ...request,
@@ -51,7 +51,7 @@ export class NanoGptClient {
   async *streamChatCompletion(
     request: ChatCompletionRequest,
   ): AsyncGenerator<string> {
-    const response = await this.fetchImpl(this.makeUrl("/api/v1/chat/completions"), {
+    const response = await this.fetchImpl(this.makeUrl("api/v1/chat/completions"), {
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify({
@@ -74,7 +74,7 @@ export class NanoGptClient {
   async generateImage(
     request: ImageGenerationRequest,
   ): Promise<ImageGenerationResponse> {
-    return this.fetchJson<ImageGenerationResponse>("/v1/images/generations", {
+    return this.fetchJson<ImageGenerationResponse>("v1/images/generations", {
       method: "POST",
       body: JSON.stringify(request),
     });
@@ -116,8 +116,35 @@ export class NanoGptClient {
   }
 
   private makeUrl(path: string): string {
-    return new URL(path, `${this.settings.baseUrl}/`).toString();
+    const baseUrl = new URL(this.settings.baseUrl);
+    const baseSegments = splitPathSegments(baseUrl.pathname);
+    const pathSegments = splitPathSegments(path);
+    const overlap = findSegmentOverlap(baseSegments, pathSegments);
+
+    baseUrl.pathname = `/${[...baseSegments, ...pathSegments.slice(overlap)].join("/")}`;
+    return baseUrl.toString();
   }
+}
+
+function splitPathSegments(path: string): string[] {
+  return path
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
+function findSegmentOverlap(baseSegments: string[], pathSegments: string[]): number {
+  const maxOverlap = Math.min(baseSegments.length, pathSegments.length);
+
+  for (let size = maxOverlap; size > 0; size -= 1) {
+    const baseSuffix = baseSegments.slice(-size);
+    const pathPrefix = pathSegments.slice(0, size);
+    if (baseSuffix.join("/") === pathPrefix.join("/")) {
+      return size;
+    }
+  }
+
+  return 0;
 }
 
 async function toApiError(response: Response): Promise<ApiError> {
@@ -156,4 +183,3 @@ function pickErrorMessage(details: unknown): string | undefined {
 
   return undefined;
 }
-
